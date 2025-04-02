@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, Area, AreaChart, Legend
+  ResponsiveContainer, Area, AreaChart, Legend, BarChart, Bar,
+  ReferenceLine, ComposedChart, Scatter
 } from 'recharts';
 import { StockData } from '@/lib/types';
 
@@ -16,6 +17,7 @@ interface StockChartProps {
 
 const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName }) => {
   const [timeRange, setTimeRange] = useState<"1m" | "3m" | "6m" | "1y">("1m");
+  const [chartType, setChartType] = useState<"area" | "candlestick">("area");
   
   const filterDataByRange = () => {
     if (!data?.length) return [];
@@ -71,6 +73,24 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
   const priceColor = isPositive ? 'text-finance-green' : 'text-finance-red';
   const chartColor = isPositive ? '#2CA58D' : '#E63946';
 
+  // Custom tooltip for candlestick chart
+  const CandlestickTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-background border rounded-md p-2 shadow-md">
+          <p className="font-medium">{formatDate(data.date)}</p>
+          <p className="text-sm">Open: {formatPrice(data.open)}</p>
+          <p className="text-sm">High: {formatPrice(data.high)}</p>
+          <p className="text-sm">Low: {formatPrice(data.low)}</p>
+          <p className="text-sm">Close: {formatPrice(data.close)}</p>
+          <p className="text-sm">Volume: {data.volume.toLocaleString()}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -86,17 +106,26 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="1m" className="w-full" onValueChange={(value) => setTimeRange(value as any)}>
-          <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4">
+          <Tabs defaultValue="1m" className="w-auto" onValueChange={(value) => setTimeRange(value as any)}>
             <TabsList>
               <TabsTrigger value="1m">1M</TabsTrigger>
               <TabsTrigger value="3m">3M</TabsTrigger>
               <TabsTrigger value="6m">6M</TabsTrigger>
               <TabsTrigger value="1y">1Y</TabsTrigger>
             </TabsList>
-          </div>
+          </Tabs>
           
-          <TabsContent value={timeRange} className="chart-container h-[300px] animate-chart-animation">
+          <Tabs defaultValue="area" className="w-auto" onValueChange={(value) => setChartType(value as any)}>
+            <TabsList>
+              <TabsTrigger value="area">Area</TabsTrigger>
+              <TabsTrigger value="candlestick">Candlestick</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        
+        <div className="chart-container h-[300px] animate-chart-animation">
+          {chartType === "area" ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={filteredData}>
                 <defs>
@@ -133,8 +162,84 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </TabsContent>
-        </Tabs>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={filteredData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date"
+                  tickFormatter={formatDate}
+                  tick={{ fontSize: 12 }}
+                  tickMargin={10}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => `$${value}`}
+                  domain={['auto', 'auto']}
+                  tickMargin={10}
+                />
+                <Tooltip content={<CandlestickTooltip />} />
+                
+                {/* Candle body */}
+                <Bar
+                  dataKey="bodyHeight"
+                  fill="transparent"
+                  stroke="transparent"
+                  barSize={6}
+                  yAxisId={0}
+                >
+                  {filteredData.map((entry, index) => {
+                    const isRising = entry.close >= entry.open;
+                    return (
+                      <rect
+                        key={`body-${index}`}
+                        x={0}
+                        y={0}
+                        width={6}
+                        height={0}
+                        fill={isRising ? '#2CA58D' : '#E63946'}
+                        className="recharts-rectangle"
+                      />
+                    );
+                  })}
+                </Bar>
+                
+                {/* Wicks */}
+                {filteredData.map((entry, index) => {
+                  const isRising = entry.close >= entry.open;
+                  return (
+                    <React.Fragment key={`wick-${index}`}>
+                      <ReferenceLine
+                        segment={[
+                          { x: index, y: entry.low },
+                          { x: index, y: entry.high },
+                        ]}
+                        stroke={isRising ? '#2CA58D' : '#E63946'}
+                        strokeWidth={1}
+                        isFront={true}
+                      />
+                      <ReferenceLine
+                        segment={[
+                          { x: index, y: entry.open },
+                          { x: index, y: entry.close },
+                        ]}
+                        stroke={isRising ? '#2CA58D' : '#E63946'}
+                        strokeWidth={6}
+                        isFront={true}
+                      />
+                    </React.Fragment>
+                  );
+                })}
+                
+                {/* To get correct tooltips */}
+                <Bar dataKey="high" fill="transparent" stroke="transparent" />
+                <Bar dataKey="low" fill="transparent" stroke="transparent" />
+                <Bar dataKey="open" fill="transparent" stroke="transparent" />
+                <Bar dataKey="close" fill="transparent" stroke="transparent" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
