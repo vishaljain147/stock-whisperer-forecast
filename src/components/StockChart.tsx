@@ -198,7 +198,6 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
                         width={6}
                         height={0}
                         fill={isRising ? '#2CA58D' : '#E63946'}
-                        className="recharts-rectangle"
                       />
                     );
                   })}
@@ -207,29 +206,29 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
                 {/* Wicks */}
                 {filteredData.map((entry, index) => {
                   const isRising = entry.close >= entry.open;
-                  return (
-                    <React.Fragment key={`wick-${index}`}>
-                      <ReferenceLine
-                        segment={[
-                          { x: index, y: entry.low },
-                          { x: index, y: entry.high },
-                        ]}
-                        stroke={isRising ? '#2CA58D' : '#E63946'}
-                        strokeWidth={1}
-                        isFront={true}
-                      />
-                      <ReferenceLine
-                        segment={[
-                          { x: index, y: entry.open },
-                          { x: index, y: entry.close },
-                        ]}
-                        stroke={isRising ? '#2CA58D' : '#E63946'}
-                        strokeWidth={6}
-                        isFront={true}
-                      />
-                    </React.Fragment>
-                  );
-                })}
+                  return [
+                    <ReferenceLine
+                      key={`wick-${index}`}
+                      segment={[
+                        { x: index, y: entry.low },
+                        { x: index, y: entry.high }
+                      ]}
+                      stroke={isRising ? '#2CA58D' : '#E63946'}
+                      strokeWidth={1}
+                      isFront={true}
+                    />,
+                    <ReferenceLine
+                      key={`body-${index}`}
+                      segment={[
+                        { x: index, y: entry.open },
+                        { x: index, y: entry.close }
+                      ]}
+                      stroke={isRising ? '#2CA58D' : '#E63946'}
+                      strokeWidth={6}
+                      isFront={true}
+                    />
+                  ];
+                }).flat()}
                 
                 {/* To get correct tooltips */}
                 <Bar dataKey="high" fill="transparent" stroke="transparent" />
