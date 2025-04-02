@@ -8,6 +8,11 @@ import {
   ReferenceLine, ComposedChart, Scatter
 } from 'recharts';
 import { StockData } from '@/lib/types';
+import { 
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent
+} from "@/components/ui/chart";
 
 interface StockChartProps {
   data: StockData[];
@@ -47,6 +52,14 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
   };
 
   const filteredData = filterDataByRange();
+  
+  // Process data for candlestick chart
+  const processedData = filteredData.map((item, index) => {
+    return {
+      ...item,
+      index: index, // Add index for x-coordinate in candlestick
+    };
+  });
   
   const currentPrice = data[data.length - 1]?.close || 0;
   const previousPrice = data[data.length - 2]?.close || 0;
@@ -91,6 +104,120 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
     return null;
   };
 
+  const renderCandlestick = () => {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={processedData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="date"
+            tickFormatter={formatDate}
+            tick={{ fontSize: 12 }}
+            tickMargin={10}
+          />
+          <YAxis 
+            tick={{ fontSize: 12 }}
+            tickFormatter={(value) => `$${value}`}
+            domain={['auto', 'auto']}
+            tickMargin={10}
+          />
+          <ChartTooltip content={<CandlestickTooltip />} />
+          
+          {/* High-Low Lines (Wicks) */}
+          {processedData.map((entry, index) => {
+            const isRising = entry.close >= entry.open;
+            return (
+              <ReferenceLine
+                key={`hl-${index}`}
+                segment={[
+                  { x: entry.index, y: entry.low },
+                  { x: entry.index, y: entry.high }
+                ]}
+                stroke={isRising ? '#2CA58D' : '#E63946'}
+                strokeWidth={1}
+                ifOverflow="extendDomain"
+              />
+            );
+          })}
+          
+          {/* Open-Close Bodies */}
+          {processedData.map((entry, index) => {
+            const isRising = entry.close >= entry.open;
+            return (
+              <ReferenceLine
+                key={`oc-${index}`}
+                segment={[
+                  { x: entry.index, y: entry.open },
+                  { x: entry.index, y: entry.close }
+                ]}
+                stroke={isRising ? '#2CA58D' : '#E63946'}
+                strokeWidth={6}
+                ifOverflow="extendDomain"
+              />
+            );
+          })}
+          
+          {/* Invisible bars to ensure tooltips work correctly */}
+          <Bar dataKey="high" fill="transparent" stroke="transparent" />
+          <Bar dataKey="low" fill="transparent" stroke="transparent" />
+          <Bar dataKey="open" fill="transparent" stroke="transparent" />
+          <Bar dataKey="close" fill="transparent" stroke="transparent" />
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderAreaChart = () => {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={filteredData}>
+          <defs>
+            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
+              <stop offset="95%" stopColor={chartColor} stopOpacity={0.1}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="date" 
+            tickFormatter={formatDate}
+            tick={{ fontSize: 12 }}
+            tickMargin={10}
+          />
+          <YAxis 
+            tick={{ fontSize: 12 }}
+            tickFormatter={(value) => `$${value}`}
+            domain={['auto', 'auto']}
+            tickMargin={10}
+          />
+          <ChartTooltip 
+            formatter={(value) => [formatPrice(value as number), 'Price']}
+            labelFormatter={(label) => formatDate(label as string)}
+            content={({active, payload, label}) => {
+              if (active && payload && payload.length) {
+                return (
+                  <div className="bg-background border rounded-md p-2 shadow-md">
+                    <p className="font-medium">{formatDate(label as string)}</p>
+                    <p className="text-sm">Price: {formatPrice(payload[0].value as number)}</p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Area 
+            type="monotone" 
+            dataKey="close" 
+            stroke={chartColor} 
+            fill="url(#colorPrice)"
+            animationDuration={1000}
+            strokeWidth={2}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    );
+  };
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -125,119 +252,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, stockSymbol, companyName 
         </div>
         
         <div className="chart-container h-[300px] animate-chart-animation">
-          {chartType === "area" ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={filteredData}>
-                <defs>
-                  <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColor} stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor={chartColor} stopOpacity={0.1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={formatDate}
-                  tick={{ fontSize: 12 }}
-                  tickMargin={10}
-                />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => `$${value}`}
-                  domain={['auto', 'auto']}
-                  tickMargin={10}
-                />
-                <Tooltip 
-                  formatter={(value) => [formatPrice(value as number), 'Price']}
-                  labelFormatter={(label) => formatDate(label as string)}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="close" 
-                  stroke={chartColor} 
-                  fill="url(#colorPrice)"
-                  animationDuration={1000}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={filteredData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date"
-                  tickFormatter={formatDate}
-                  tick={{ fontSize: 12 }}
-                  tickMargin={10}
-                />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => `$${value}`}
-                  domain={['auto', 'auto']}
-                  tickMargin={10}
-                />
-                <Tooltip content={<CandlestickTooltip />} />
-                
-                {/* Candle body */}
-                <Bar
-                  dataKey="bodyHeight"
-                  fill="transparent"
-                  stroke="transparent"
-                  barSize={6}
-                  yAxisId={0}
-                >
-                  {filteredData.map((entry, index) => {
-                    const isRising = entry.close >= entry.open;
-                    return (
-                      <rect
-                        key={`body-${index}`}
-                        x={0}
-                        y={0}
-                        width={6}
-                        height={0}
-                        fill={isRising ? '#2CA58D' : '#E63946'}
-                      />
-                    );
-                  })}
-                </Bar>
-                
-                {/* Wicks */}
-                {filteredData.map((entry, index) => {
-                  const isRising = entry.close >= entry.open;
-                  return [
-                    <ReferenceLine
-                      key={`wick-${index}`}
-                      segment={[
-                        { x: index, y: entry.low },
-                        { x: index, y: entry.high }
-                      ]}
-                      stroke={isRising ? '#2CA58D' : '#E63946'}
-                      strokeWidth={1}
-                      isFront={true}
-                    />,
-                    <ReferenceLine
-                      key={`body-${index}`}
-                      segment={[
-                        { x: index, y: entry.open },
-                        { x: index, y: entry.close }
-                      ]}
-                      stroke={isRising ? '#2CA58D' : '#E63946'}
-                      strokeWidth={6}
-                      isFront={true}
-                    />
-                  ];
-                }).flat()}
-                
-                {/* To get correct tooltips */}
-                <Bar dataKey="high" fill="transparent" stroke="transparent" />
-                <Bar dataKey="low" fill="transparent" stroke="transparent" />
-                <Bar dataKey="open" fill="transparent" stroke="transparent" />
-                <Bar dataKey="close" fill="transparent" stroke="transparent" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
+          {chartType === "area" ? renderAreaChart() : renderCandlestick()}
         </div>
       </CardContent>
     </Card>
