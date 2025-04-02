@@ -10,7 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Prediction, StockData, Metrics, NewsItem, StockProfile } from '@/lib/types';
-import { generateStockData, generateMetrics, generatePredictions, generateNews, generateStockProfile } from '@/lib/mockData';
+import { 
+  fetchStockData, 
+  fetchCompanyOverview, 
+  fetchMetrics, 
+  fetchStockNews, 
+  generatePredictions 
+} from '@/lib/api';
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,36 +31,33 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      // In a real app, we would fetch data from an API
-      // For this example, we'll use mock data
-      setTimeout(() => {
-        // Convert query to uppercase for stock symbols
-        const symbol = query.toUpperCase();
-        
-        // Generate mock stock data for the past 365 days
-        const stockData = generateStockData(symbol, 365);
-        setStockData(stockData);
-        
-        // Generate metrics based on stock data
-        const metrics = generateMetrics(symbol, stockData);
-        setMetrics(metrics);
-        
-        // Generate predictions based on current price
-        const currentPrice = stockData[stockData.length - 1]?.close || 0;
-        const predictions = generatePredictions(symbol, currentPrice);
-        setPredictions(predictions);
-        
-        // Generate news for the stock
-        const news = generateNews(symbol);
-        setNews(news);
-        
-        // Generate stock profile
-        const profile = generateStockProfile(symbol);
-        setStockProfile(profile);
-        
-        setIsLoading(false);
-        toast.success(`Analysis complete for ${symbol}`);
-      }, 1500); // Simulate API delay
+      // Convert query to uppercase for stock symbols
+      const symbol = query.toUpperCase();
+      
+      // First fetch the stock data
+      const stockData = await fetchStockData(symbol);
+      setStockData(stockData);
+      
+      // Then fetch company overview in parallel with other data
+      const [companyOverview, stockNews] = await Promise.all([
+        fetchCompanyOverview(symbol),
+        fetchStockNews(symbol)
+      ]);
+      
+      setStockProfile(companyOverview);
+      setNews(stockNews);
+      
+      // Metrics need stock data
+      const metrics = await fetchMetrics(symbol, stockData);
+      setMetrics(metrics);
+      
+      // Generate predictions based on stock data
+      const currentPrice = stockData[stockData.length - 1]?.close || 0;
+      const predictions = generatePredictions(symbol, stockData);
+      setPredictions(predictions);
+      
+      setIsLoading(false);
+      toast.success(`Analysis complete for ${symbol}`);
       
     } catch (error) {
       console.error('Error fetching stock data:', error);
@@ -156,16 +159,16 @@ const Index = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
                     <FeatureCard 
-                      title="Historical Data" 
-                      description="View interactive charts with historical price movements"
+                      title="Real-Time Data" 
+                      description="View interactive charts with real historical price movements"
                     />
                     <FeatureCard 
                       title="Price Predictions" 
-                      description="Get AI-powered price forecasts for different timeframes"
+                      description="Get data-driven price forecasts for different timeframes"
                     />
                     <FeatureCard 
                       title="Trading Signals" 
-                      description="Receive buy, sell, or hold recommendations based on analysis"
+                      description="Receive buy, sell, or hold recommendations based on technical analysis"
                     />
                   </div>
                 </CardContent>
@@ -179,7 +182,7 @@ const Index = () => {
         <div className="container text-center text-sm text-muted-foreground">
           <p>StockWhisperer - Stock Market Price Analyzer</p>
           <p className="mt-1">
-            Disclaimer: This tool provides mock data for demonstration purposes only. Do not use for actual trading decisions.
+            Data provided by Alpha Vantage API. For personal use only.
           </p>
         </div>
       </footer>

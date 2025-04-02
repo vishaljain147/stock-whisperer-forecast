@@ -11,7 +11,7 @@ const Header: React.FC = () => {
           <h1 className="text-xl font-bold">StockWhisperer</h1>
         </div>
         <p className="ml-4 text-muted-foreground">
-          Stock Market Price Analyzer
+          Real-Time Stock Market Price Analyzer
         </p>
       </div>
     </header>
