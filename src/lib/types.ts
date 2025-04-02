@@ -72,8 +72,8 @@ export interface AlphaVantageCompanyOverviewResponse {
   MarketCapitalization: string;
   PERatio: string;
   DividendYield: string;
-  52WeekHigh: string;
-  52WeekLow: string;
+  '52WeekHigh': string;
+  '52WeekLow': string;
   FullTimeEmployees: string;
   Address: string;
   FiscalYearEnd: string;
