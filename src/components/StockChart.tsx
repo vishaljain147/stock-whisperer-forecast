@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/chart";
 import { Switch } from "@/components/ui/switch";
 import { 
-  ChartLineUp, 
-  Candlestick, 
-  BarChart3, 
+  ChartLine, 
+  BarChart3,
   LineChart as LineChartIcon,
-  CircleAlert
+  CircleAlert,
+  TrendingUp
 } from "lucide-react";
 
 interface StockChartProps {
@@ -355,10 +355,10 @@ const StockChart: React.FC<StockChartProps> = ({
           <Tabs defaultValue="area" className="w-auto" onValueChange={(value) => setChartType(value as any)}>
             <TabsList>
               <TabsTrigger value="area" className="flex items-center gap-1">
-                <ChartLineUp size={15} /> Area
+                <ChartLine size={15} /> Area
               </TabsTrigger>
               <TabsTrigger value="candlestick" className="flex items-center gap-1">
-                <Candlestick size={15} /> Candlestick
+                <TrendingUp size={15} /> Candlestick
               </TabsTrigger>
               <TabsTrigger value="line" className="flex items-center gap-1">
                 <LineChartIcon size={15} /> Line

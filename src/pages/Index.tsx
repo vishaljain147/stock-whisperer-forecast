@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Header from '@/components/Header';
 import StockSearch from '@/components/StockSearch';
@@ -33,14 +32,11 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      // Convert query to uppercase for stock symbols
       const symbol = query.toUpperCase();
       
-      // First fetch the stock data
       const stockData = await fetchStockData(symbol);
       setStockData(stockData);
       
-      // Then fetch company overview in parallel with other data
       const [companyOverview, stockNews] = await Promise.all([
         fetchCompanyOverview(symbol),
         fetchStockNews(symbol)
@@ -49,11 +45,9 @@ const Index = () => {
       setStockProfile(companyOverview);
       setNews(stockNews);
       
-      // Metrics need stock data
       const metrics = await fetchMetrics(symbol, stockData);
       setMetrics(metrics);
       
-      // Generate predictions based on stock data
       const currentPrice = stockData[stockData.length - 1]?.close || 0;
       const predictions = generatePredictions(symbol, stockData);
       setPredictions(predictions);
@@ -73,7 +67,9 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header>
-        <ThemeToggle />
+        <div>
+          <ThemeToggle />
+        </div>
       </Header>
       
       <main className="flex-1 container py-8">
@@ -84,12 +80,10 @@ const Index = () => {
           </div>
           
           <div className="grid lg:grid-cols-7 gap-6">
-            {/* Watchlist column - 2 columns on lg screens */}
             <div className="lg:col-span-2">
               <Watchlist onSelectStock={handleSearch} />
             </div>
             
-            {/* Main content area - 5 columns on lg screens */}
             <div className="lg:col-span-5">
               {stockData.length > 0 && stockProfile && (
                 <div className="grid gap-8 animate-fade-in">

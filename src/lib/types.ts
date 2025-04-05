@@ -98,3 +98,11 @@ export interface AlphaVantageNewsResponse {
     source_domain: string;
   }[];
 }
+
+// Indian stock exchanges
+export const INDIAN_EXCHANGES = ['NSE', 'BSE'];
+
+// Function to check if a stock is from an Indian exchange
+export const isIndianExchange = (exchange: string = ''): boolean => {
+  return INDIAN_EXCHANGES.includes(exchange.toUpperCase());
+};
