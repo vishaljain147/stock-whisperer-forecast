@@ -1,11 +1,15 @@
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { BarChart3, TrendingUp } from "lucide-react";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  children?: ReactNode;
+}
+
+const Header: React.FC<HeaderProps> = ({ children }) => {
   return (
     <header className="border-b">
-      <div className="container py-4 flex items-center">
+      <div className="container py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex items-center">
             <BarChart3 className="w-6 h-6 text-finance-teal" />
@@ -13,9 +17,10 @@ const Header: React.FC = () => {
           </div>
           <h1 className="text-xl font-bold">StockWhisperer</h1>
         </div>
-        <p className="ml-4 text-muted-foreground">
+        <p className="ml-4 mr-auto text-muted-foreground">
           Advanced Stock Market Price Analyzer
         </p>
+        {children}
       </div>
     </header>
   );

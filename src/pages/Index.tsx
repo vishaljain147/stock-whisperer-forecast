@@ -67,9 +67,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header>
-        <div>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
       </Header>
       
       <main className="flex-1 container py-8">
