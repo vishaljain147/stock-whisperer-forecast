@@ -7,7 +7,9 @@ import {
   Metrics,
   StockProfile,
   NewsItem,
-  Prediction
+  Prediction,
+  isIndianExchange,
+  INDIAN_EXCHANGES
 } from './types';
 
 // In a production environment, this would be stored securely in environment variables
@@ -18,18 +20,33 @@ const BASE_URL = 'https://www.alphavantage.co/query';
 // Fetch historical stock data
 export const fetchStockData = async (symbol: string): Promise<StockData[]> => {
   try {
-    const url = `${BASE_URL}?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=full&apikey=${API_KEY}`;
+    // Check if it's an Indian stock symbol (checking for NSE or BSE suffix)
+    const isIndian = symbol.includes('.NS') || symbol.includes('.BSE') || 
+                     INDIAN_EXCHANGES.some(ex => symbol.endsWith(`.${ex}`));
+    
+    // Use the correct symbol format for the API call
+    const apiSymbol = isIndian ? symbol : symbol.split('.')[0];
+    
+    const url = `${BASE_URL}?function=TIME_SERIES_DAILY&symbol=${apiSymbol}&outputsize=full&apikey=${API_KEY}`;
+    console.log(`Fetching stock data from: ${url}`);
+    
     const response = await fetch(url);
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
     
-    const data: AlphaVantageTimeSeriesResponse = await response.json();
+    const data = await response.json();
     
-    // Check if we got an error message from Alpha Vantage
-    if ('Error Message' in data) {
-      throw new Error(data['Error Message' as keyof typeof data] as string);
+    // Check if we got an error message or empty response from Alpha Vantage
+    if ('Error Message' in data || 'Information' in data || Object.keys(data).length === 0) {
+      console.error('API returned error or empty data:', data);
+      throw new Error(data['Error Message'] || data['Information'] || 'No data returned from API');
+    }
+    
+    // Check if Time Series data exists
+    if (!data['Time Series (Daily)'] || Object.keys(data['Time Series (Daily)']).length === 0) {
+      throw new Error(`No time series data found for symbol: ${symbol}`);
     }
     
     // Transform API data to our StockData format
@@ -54,7 +71,16 @@ export const fetchStockData = async (symbol: string): Promise<StockData[]> => {
 // Fetch company overview data
 export const fetchCompanyOverview = async (symbol: string): Promise<StockProfile> => {
   try {
-    const url = `${BASE_URL}?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`;
+    // Check if it's an Indian stock symbol
+    const isIndian = symbol.includes('.NS') || symbol.includes('.BSE') || 
+                     INDIAN_EXCHANGES.some(ex => symbol.endsWith(`.${ex}`));
+    
+    // Use the correct symbol format for the API call
+    const apiSymbol = isIndian ? symbol : symbol.split('.')[0];
+    
+    const url = `${BASE_URL}?function=OVERVIEW&symbol=${apiSymbol}&apikey=${API_KEY}`;
+    console.log(`Fetching company overview from: ${url}`);
+    
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -65,19 +91,40 @@ export const fetchCompanyOverview = async (symbol: string): Promise<StockProfile
     
     // Check if we got a valid response (Alpha Vantage returns an empty object for invalid symbols)
     if (Object.keys(data).length === 0) {
-      throw new Error(`No data found for symbol: ${symbol}`);
+      // If no data found, create a fallback profile with basic information
+      const exchange = isIndian ? (symbol.includes('.NS') ? 'NSE' : 'BSE') : 'NASDAQ';
+      const stockName = symbol.split('.')[0];
+      
+      return {
+        symbol: symbol,
+        name: stockName,
+        description: `Information not available for ${stockName}`,
+        industry: 'Not available',
+        sector: 'Not available',
+        employees: 0,
+        ceo: 'Not available',
+        website: 'Not available',
+        exchange: exchange
+      };
+    }
+    
+    // Add exchange info for Indian stocks if not provided
+    let exchange = data.Exchange || '';
+    if (isIndian && !exchange) {
+      exchange = symbol.includes('.NS') ? 'NSE' : symbol.includes('.BSE') ? 'BSE' : 'Indian Exchange';
     }
     
     // Transform API data to our StockProfile format
     return {
-      symbol: data.Symbol,
-      name: data.Name,
-      description: data.Description,
-      industry: data.Industry,
-      sector: data.Sector,
+      symbol: data.Symbol || symbol,
+      name: data.Name || symbol,
+      description: data.Description || `No description available for ${symbol}`,
+      industry: data.Industry || 'Not available',
+      sector: data.Sector || 'Not available',
       employees: parseInt(data.FullTimeEmployees || '0', 10),
       ceo: data.CEO || 'Not available',
-      website: data.Address || 'Not available'
+      website: data.Address || 'Not available',
+      exchange: exchange || 'NASDAQ'
     };
   } catch (error) {
     console.error("Error fetching company overview:", error);
@@ -88,7 +135,14 @@ export const fetchCompanyOverview = async (symbol: string): Promise<StockProfile
 // Fetch metrics
 export const fetchMetrics = async (symbol: string, stockData: StockData[]): Promise<Metrics> => {
   try {
-    const url = `${BASE_URL}?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`;
+    // Check if it's an Indian stock symbol
+    const isIndian = symbol.includes('.NS') || symbol.includes('.BSE') || 
+                     INDIAN_EXCHANGES.some(ex => symbol.endsWith(`.${ex}`));
+    
+    // Use the correct symbol format for the API call
+    const apiSymbol = isIndian ? symbol : symbol.split('.')[0];
+    
+    const url = `${BASE_URL}?function=OVERVIEW&symbol=${apiSymbol}&apikey=${API_KEY}`;
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -115,6 +169,24 @@ export const fetchMetrics = async (symbol: string, stockData: StockData[]): Prom
     };
   } catch (error) {
     console.error("Error fetching metrics:", error);
+    
+    // Create fallback metrics from stock data if available
+    if (stockData.length > 0) {
+      const prices = stockData.map(d => d.close);
+      const high52Week = Math.max(...prices);
+      const low52Week = Math.min(...prices);
+      const volume = stockData[stockData.length - 1].volume;
+      
+      return {
+        marketCap: 0,
+        peRatio: 0,
+        dividendYield: 0,
+        high52Week,
+        low52Week,
+        volume
+      };
+    }
+    
     throw error;
   }
 };
@@ -122,14 +194,29 @@ export const fetchMetrics = async (symbol: string, stockData: StockData[]): Prom
 // Fetch news for a stock
 export const fetchStockNews = async (symbol: string): Promise<NewsItem[]> => {
   try {
-    const url = `${BASE_URL}?function=NEWS_SENTIMENT&tickers=${symbol}&apikey=${API_KEY}`;
+    // Check if it's an Indian stock symbol
+    const isIndian = symbol.includes('.NS') || symbol.includes('.BSE') || 
+                     INDIAN_EXCHANGES.some(ex => symbol.endsWith(`.${ex}`));
+    
+    // Use the correct symbol format for the API call
+    const apiSymbol = isIndian ? symbol : symbol.split('.')[0];
+    
+    const url = `${BASE_URL}?function=NEWS_SENTIMENT&tickers=${apiSymbol}&apikey=${API_KEY}`;
+    console.log(`Fetching news from: ${url}`);
+    
     const response = await fetch(url);
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
     
-    const data: AlphaVantageNewsResponse = await response.json();
+    const data = await response.json();
+    
+    // Check if we got a valid feed
+    if (!data.feed || !Array.isArray(data.feed)) {
+      console.warn('No news feed available:', data);
+      return [];
+    }
     
     // Transform API data to our NewsItem format
     return data.feed.slice(0, 3).map(item => ({

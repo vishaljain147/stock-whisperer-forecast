@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,11 +67,10 @@ const StockChart: React.FC<StockChartProps> = ({
 
   const filteredData = filterDataByRange();
   
-  // Process data for candlestick chart
   const processedData = filteredData.map((item, index) => {
     return {
       ...item,
-      index: index, // Add index for x-coordinate in candlestick
+      index: index,
     };
   });
   
@@ -82,7 +80,6 @@ const StockChart: React.FC<StockChartProps> = ({
   const priceChangePercent = (priceChange / previousPrice) * 100;
   
   const formatPrice = (price: number) => {
-    // Format based on exchange (add INR for Indian exchanges)
     const currency = isIndianExchange(exchange) ? 'INR' : 'USD';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -103,13 +100,11 @@ const StockChart: React.FC<StockChartProps> = ({
   const priceColor = isPositive ? 'text-finance-green' : 'text-finance-red';
   const chartColor = isPositive ? '#2CA58D' : '#E63946';
 
-  // Helper function to determine if it's an Indian exchange
   const isIndianExchange = (exchange: string) => {
     const indianExchanges = ["NSE", "BSE"];
     return indianExchanges.includes(exchange);
   };
   
-  // Custom tooltip for candlestick chart
   const CandlestickTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -172,7 +167,6 @@ const StockChart: React.FC<StockChartProps> = ({
             ];
           }).flat()}
           
-          {/* Invisible bars to ensure tooltips work correctly */}
           <Bar dataKey="high" fill="transparent" stroke="transparent" />
         </ComposedChart>
       </ResponsiveContainer>

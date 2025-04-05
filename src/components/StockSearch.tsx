@@ -11,11 +11,18 @@ interface StockSearchProps {
 }
 
 const popularStocks = [
+  // US stocks
   { name: "Apple", symbol: "AAPL" },
   { name: "Microsoft", symbol: "MSFT" }, 
   { name: "Amazon", symbol: "AMZN" },
   { name: "Tesla", symbol: "TSLA" },
   { name: "Google", symbol: "GOOGL" },
+  // Indian stocks
+  { name: "Reliance", symbol: "RELIANCE.NS" },
+  { name: "TCS", symbol: "TCS.NS" },
+  { name: "HDFC Bank", symbol: "HDFCBANK.NS" },
+  { name: "Infosys", symbol: "INFY.NS" },
+  { name: "ICICI Bank", symbol: "ICICIBANK.NS" },
 ];
 
 const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
@@ -27,7 +34,21 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
       toast.error("Please enter a stock symbol or company name");
       return;
     }
-    onSearch(query);
+    
+    // Format Indian stock symbols automatically if needed
+    let searchSymbol = query.trim();
+    if (/^[A-Za-z&]+$/.test(searchSymbol) && !searchSymbol.includes('.')) {
+      // Try to match from our popularStocks list first
+      const matchedStock = popularStocks.find(
+        stock => stock.symbol.split('.')[0].toLowerCase() === searchSymbol.toLowerCase()
+      );
+      
+      if (matchedStock) {
+        searchSymbol = matchedStock.symbol;
+      }
+    }
+    
+    onSearch(searchSymbol);
   };
 
   const handleQuickSearch = (symbol: string) => {
@@ -40,7 +61,7 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
       <form onSubmit={handleSearch} className="flex gap-2 mb-4">
         <Input
           type="text"
-          placeholder="Enter stock symbol (e.g., AAPL, MSFT)"
+          placeholder="Enter stock symbol (e.g., AAPL, RELIANCE.NS)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="flex-1"
