@@ -104,5 +104,16 @@ export const INDIAN_EXCHANGES = ['NSE', 'BSE'];
 
 // Function to check if a stock is from an Indian exchange
 export const isIndianExchange = (exchange: string = ''): boolean => {
-  return INDIAN_EXCHANGES.includes(exchange.toUpperCase());
+  return INDIAN_EXCHANGES.includes(exchange.toUpperCase()) || exchange.includes('NSE') || exchange.includes('BSE');
+};
+
+// Function to check if a symbol is likely an Indian stock
+export const isIndianStock = (symbol: string): boolean => {
+  return symbol.endsWith('.NS') || symbol.endsWith('.BSE');
+};
+
+// Currency symbols
+export const CURRENCY_SYMBOLS = {
+  USD: '$',
+  INR: '₹',
 };

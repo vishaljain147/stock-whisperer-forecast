@@ -19,7 +19,9 @@ import {
   BarChart3,
   LineChart as LineChartIcon,
   CircleAlert,
-  TrendingUp
+  TrendingUp,
+  IndianRupee,
+  Calendar
 } from "lucide-react";
 
 interface StockChartProps {
@@ -35,12 +37,15 @@ const StockChart: React.FC<StockChartProps> = ({
   companyName,
   exchange = "NASDAQ" 
 }) => {
-  const [timeRange, setTimeRange] = useState<"1m" | "3m" | "6m" | "1y">("1m");
+  const [timeRange, setTimeRange] = useState<"all" | "1m" | "3m" | "6m" | "1y">("all");
   const [chartType, setChartType] = useState<"area" | "candlestick" | "bar" | "line">("area");
   const [showVolume, setShowVolume] = useState<boolean>(false);
   
   const filterDataByRange = () => {
     if (!data?.length) return [];
+    
+    // If "all" is selected, return all data
+    if (timeRange === "all") return data;
     
     const now = new Date();
     let pastDate = new Date();
@@ -334,16 +339,23 @@ const StockChart: React.FC<StockChartProps> = ({
           <p className="text-muted-foreground">{companyName} - {exchange}</p>
         </div>
         <div className="text-right">
-          <p className="text-3xl font-bold animate-number">{formatPrice(currentPrice)}</p>
+          <p className="text-3xl font-bold animate-number flex items-center">
+            {isIndianExchange(exchange) && <IndianRupee className="mr-1 h-6 w-6" />}
+            {!isIndianExchange(exchange) && "$"}
+            {currentPrice.toFixed(2)}
+          </p>
           <p className={`flex items-center ${priceColor}`}>
-            {isPositive ? '▲' : '▼'} {formatPrice(Math.abs(priceChange))} ({priceChangePercent.toFixed(2)}%)
+            {isPositive ? '▲' : '▼'} {getCurrencySymbol()}{Math.abs(priceChange).toFixed(2)} ({priceChangePercent.toFixed(2)}%)
           </p>
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <Tabs defaultValue="1m" className="w-auto" onValueChange={(value) => setTimeRange(value as any)}>
+          <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => setTimeRange(value as any)}>
             <TabsList>
+              <TabsTrigger value="all" className="flex items-center gap-1">
+                <Calendar size={15} /> All
+              </TabsTrigger>
               <TabsTrigger value="1m">1M</TabsTrigger>
               <TabsTrigger value="3m">3M</TabsTrigger>
               <TabsTrigger value="6m">6M</TabsTrigger>

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 
 interface StockSearchProps {
@@ -18,11 +18,11 @@ const popularStocks = [
   { name: "Tesla", symbol: "TSLA" },
   { name: "Google", symbol: "GOOGL" },
   // Indian stocks - ensure all have proper exchange suffixes
-  { name: "Reliance Industries", symbol: "RELIANCE.NS" },
-  { name: "Tata Consultancy", symbol: "TCS.NS" },
-  { name: "HDFC Bank", symbol: "HDFCBANK.NS" },
-  { name: "Infosys", symbol: "INFY.NS" },
-  { name: "ICICI Bank", symbol: "ICICIBANK.NS" },
+  { name: "Reliance Industries", symbol: "RELIANCE.NS", indian: true },
+  { name: "Tata Consultancy", symbol: "TCS.NS", indian: true },
+  { name: "HDFC Bank", symbol: "HDFCBANK.NS", indian: true },
+  { name: "Infosys", symbol: "INFY.NS", indian: true },
+  { name: "ICICI Bank", symbol: "ICICIBANK.NS", indian: true },
 ];
 
 const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
@@ -46,13 +46,18 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
     
     // Try to match from our popularStocks list first
     const matchedStock = popularStocks.find(
-      stock => stock.symbol.split('.')[0].toUpperCase() === searchSymbol
+      stock => stock.symbol.split('.')[0].toUpperCase() === searchSymbol || 
+              stock.symbol.toUpperCase() === searchSymbol
     );
     
     if (matchedStock) {
       // If found in our list, use the full symbol with exchange
       searchSymbol = matchedStock.symbol;
       setQuery(matchedStock.symbol);
+      
+      if (matchedStock.indian) {
+        toast.info(`Searching Indian stock: ${matchedStock.name}`);
+      }
     } else if (isLikelyIndianStock) {
       // If likely an Indian stock but not in our list, add .NS suffix as default
       searchSymbol = `${searchSymbol}.NS`;
@@ -95,8 +100,9 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
             variant="outline"
             size="sm"
             onClick={() => handleQuickSearch(stock.symbol)}
-            className="text-xs"
+            className="text-xs flex items-center"
           >
+            {stock.indian && <IndianRupee className="h-3 w-3 mr-1" />}
             {stock.name}
           </Button>
         ))}
