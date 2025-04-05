@@ -17,9 +17,9 @@ const popularStocks = [
   { name: "Amazon", symbol: "AMZN" },
   { name: "Tesla", symbol: "TSLA" },
   { name: "Google", symbol: "GOOGL" },
-  // Indian stocks
-  { name: "Reliance", symbol: "RELIANCE.NS" },
-  { name: "TCS", symbol: "TCS.NS" },
+  // Indian stocks - ensure all have proper exchange suffixes
+  { name: "Reliance Industries", symbol: "RELIANCE.NS" },
+  { name: "Tata Consultancy", symbol: "TCS.NS" },
   { name: "HDFC Bank", symbol: "HDFCBANK.NS" },
   { name: "Infosys", symbol: "INFY.NS" },
   { name: "ICICI Bank", symbol: "ICICIBANK.NS" },
@@ -36,16 +36,27 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
     }
     
     // Format Indian stock symbols automatically if needed
-    let searchSymbol = query.trim();
-    if (/^[A-Za-z&]+$/.test(searchSymbol) && !searchSymbol.includes('.')) {
-      // Try to match from our popularStocks list first
-      const matchedStock = popularStocks.find(
-        stock => stock.symbol.split('.')[0].toLowerCase() === searchSymbol.toLowerCase()
-      );
-      
-      if (matchedStock) {
-        searchSymbol = matchedStock.symbol;
-      }
+    let searchSymbol = query.trim().toUpperCase();
+    
+    // Check if it's likely an Indian stock but missing the exchange suffix
+    const isLikelyIndianStock = /^[A-Za-z&]+$/.test(searchSymbol) && 
+                               !searchSymbol.includes('.') && 
+                               (searchSymbol.length >= 2) &&
+                               !["AAPL", "MSFT", "AMZN", "TSLA", "GOOGL", "FB", "NFLX"].includes(searchSymbol);
+    
+    // Try to match from our popularStocks list first
+    const matchedStock = popularStocks.find(
+      stock => stock.symbol.split('.')[0].toUpperCase() === searchSymbol
+    );
+    
+    if (matchedStock) {
+      // If found in our list, use the full symbol with exchange
+      searchSymbol = matchedStock.symbol;
+      setQuery(matchedStock.symbol);
+    } else if (isLikelyIndianStock) {
+      // If likely an Indian stock but not in our list, add .NS suffix as default
+      searchSymbol = `${searchSymbol}.NS`;
+      toast.info(`Searching as Indian stock: ${searchSymbol}`);
     }
     
     onSearch(searchSymbol);
@@ -86,7 +97,7 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
             onClick={() => handleQuickSearch(stock.symbol)}
             className="text-xs"
           >
-            {stock.name} ({stock.symbol})
+            {stock.name}
           </Button>
         ))}
       </div>

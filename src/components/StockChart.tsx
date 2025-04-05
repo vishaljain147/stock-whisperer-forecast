@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -77,7 +78,7 @@ const StockChart: React.FC<StockChartProps> = ({
   const currentPrice = data[data.length - 1]?.close || 0;
   const previousPrice = data[data.length - 2]?.close || 0;
   const priceChange = currentPrice - previousPrice;
-  const priceChangePercent = (priceChange / previousPrice) * 100;
+  const priceChangePercent = previousPrice ? (priceChange / previousPrice) * 100 : 0;
   
   const formatPrice = (price: number) => {
     const currency = isIndianExchange(exchange) ? 'INR' : 'USD';
@@ -321,6 +322,10 @@ const StockChart: React.FC<StockChartProps> = ({
     );
   };
 
+  const getCurrencySymbol = () => {
+    return isIndianExchange(exchange) ? '₹' : '$';
+  };
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -370,13 +375,15 @@ const StockChart: React.FC<StockChartProps> = ({
         </div>
         
         <div className="chart-container h-[300px] animate-chart-animation relative">
-          {chartType === "area" && renderAreaChart()}
-          {chartType === "candlestick" && renderCandlestick()}
-          {chartType === "line" && renderLineChart()}
-          {chartType === "bar" && renderBarChart()}
-          {showVolume && renderVolumeChart()}
-          
-          {filteredData.length === 0 && (
+          {filteredData.length > 0 ? (
+            <>
+              {chartType === "area" && renderAreaChart()}
+              {chartType === "candlestick" && renderCandlestick()}
+              {chartType === "line" && renderLineChart()}
+              {chartType === "bar" && renderBarChart()}
+              {showVolume && renderVolumeChart()}
+            </>
+          ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <CircleAlert size={32} />
