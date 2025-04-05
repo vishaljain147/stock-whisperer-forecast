@@ -42,6 +42,7 @@ export interface StockProfile {
   employees: number;
   ceo: string;
   website: string;
+  exchange?: string; // Added exchange property
 }
 
 export interface AlphaVantageTimeSeriesResponse {
@@ -81,6 +82,7 @@ export interface AlphaVantageCompanyOverviewResponse {
   ProfitMargin: string;
   EVToEBITDA: string;
   CEO?: string;
+  Exchange?: string; // Added Exchange property
 }
 
 export interface AlphaVantageNewsResponse {

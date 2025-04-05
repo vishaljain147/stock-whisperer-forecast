@@ -6,6 +6,8 @@ import StockChart from '@/components/StockChart';
 import PredictionCard from '@/components/PredictionCard';
 import KeyMetrics from '@/components/KeyMetrics';
 import StockNews from '@/components/StockNews';
+import Watchlist from '@/components/Watchlist';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -70,110 +72,121 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      <Header>
+        <ThemeToggle />
+      </Header>
       
       <main className="flex-1 container py-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid gap-8">
-            <div>
-              <h2 className="text-3xl font-bold mb-6">Stock Market Price Analyzer</h2>
-              <StockSearch onSearch={handleSearch} isLoading={isLoading} />
+        <div className="grid gap-8">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl font-bold mb-6">Stock Market Price Analyzer</h2>
+            <StockSearch onSearch={handleSearch} isLoading={isLoading} />
+          </div>
+          
+          <div className="grid lg:grid-cols-7 gap-6">
+            {/* Watchlist column - 2 columns on lg screens */}
+            <div className="lg:col-span-2">
+              <Watchlist onSelectStock={handleSearch} />
             </div>
             
-            {stockData.length > 0 && stockProfile && (
-              <div className="grid gap-8 animate-fade-in">
-                <div>
-                  <StockChart 
-                    data={stockData}
-                    stockSymbol={stockProfile.symbol}
-                    companyName={stockProfile.name}
-                  />
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Company Profile</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <dl className="space-y-4">
-                        <div>
-                          <dt className="text-sm font-medium text-muted-foreground">Industry</dt>
-                          <dd>{stockProfile.industry}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-sm font-medium text-muted-foreground">Sector</dt>
-                          <dd>{stockProfile.sector}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-sm font-medium text-muted-foreground">CEO</dt>
-                          <dd>{stockProfile.ceo}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-sm font-medium text-muted-foreground">Employees</dt>
-                          <dd>{stockProfile.employees.toLocaleString()}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-sm font-medium text-muted-foreground">Description</dt>
-                          <dd className="text-sm">{stockProfile.description}</dd>
-                        </div>
-                      </dl>
-                    </CardContent>
-                  </Card>
+            {/* Main content area - 5 columns on lg screens */}
+            <div className="lg:col-span-5">
+              {stockData.length > 0 && stockProfile && (
+                <div className="grid gap-8 animate-fade-in">
+                  <div>
+                    <StockChart 
+                      data={stockData}
+                      stockSymbol={stockProfile.symbol}
+                      companyName={stockProfile.name}
+                      exchange={stockProfile.exchange || "NASDAQ"}
+                    />
+                  </div>
                   
-                  {metrics && <KeyMetrics metrics={metrics} />}
-                </div>
-                
-                <div>
-                  <h3 className="text-2xl font-bold mb-4">Price Predictions & Analysis</h3>
-                  
-                  <Tabs defaultValue="Tomorrow" onValueChange={setActiveTimeframe}>
-                    <TabsList className="mb-4">
-                      {predictions.map(pred => (
-                        <TabsTrigger key={pred.timeframe} value={pred.timeframe}>
-                          {pred.timeframe}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Company Profile</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <dl className="space-y-4">
+                          <div>
+                            <dt className="text-sm font-medium text-muted-foreground">Industry</dt>
+                            <dd>{stockProfile.industry}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-sm font-medium text-muted-foreground">Sector</dt>
+                            <dd>{stockProfile.sector}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-sm font-medium text-muted-foreground">CEO</dt>
+                            <dd>{stockProfile.ceo}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-sm font-medium text-muted-foreground">Employees</dt>
+                            <dd>{stockProfile.employees.toLocaleString()}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-sm font-medium text-muted-foreground">Description</dt>
+                            <dd className="text-sm">{stockProfile.description}</dd>
+                          </div>
+                        </dl>
+                      </CardContent>
+                    </Card>
                     
-                    {predictions.map(prediction => (
-                      <TabsContent key={prediction.timeframe} value={prediction.timeframe}>
-                        <PredictionCard prediction={prediction} currentPrice={currentPrice} />
-                      </TabsContent>
-                    ))}
-                  </Tabs>
+                    {metrics && <KeyMetrics metrics={metrics} />}
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-2xl font-bold mb-4">Price Predictions & Analysis</h3>
+                    
+                    <Tabs defaultValue="Tomorrow" onValueChange={setActiveTimeframe}>
+                      <TabsList className="mb-4">
+                        {predictions.map(pred => (
+                          <TabsTrigger key={pred.timeframe} value={pred.timeframe}>
+                            {pred.timeframe}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                      
+                      {predictions.map(prediction => (
+                        <TabsContent key={prediction.timeframe} value={prediction.timeframe}>
+                          <PredictionCard prediction={prediction} currentPrice={currentPrice} />
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  </div>
+                  
+                  <StockNews news={news} />
                 </div>
-                
-                <StockNews news={news} />
-              </div>
-            )}
-            
-            {!stockData.length && !isLoading && (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-medium mb-2">Welcome to StockWhisperer</h3>
-                    <p className="text-muted-foreground">
-                      Enter a stock symbol above to get started with your analysis
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
-                    <FeatureCard 
-                      title="Real-Time Data" 
-                      description="View interactive charts with real historical price movements"
-                    />
-                    <FeatureCard 
-                      title="Price Predictions" 
-                      description="Get data-driven price forecasts for different timeframes"
-                    />
-                    <FeatureCard 
-                      title="Trading Signals" 
-                      description="Receive buy, sell, or hold recommendations based on technical analysis"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+              )}
+              
+              {!stockData.length && !isLoading && (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-medium mb-2">Welcome to StockWhisperer</h3>
+                      <p className="text-muted-foreground">
+                        Enter a stock symbol above or select one from the watchlist
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
+                      <FeatureCard 
+                        title="Real-Time Data" 
+                        description="View interactive charts with real historical price movements"
+                      />
+                      <FeatureCard 
+                        title="Price Predictions" 
+                        description="Get data-driven price forecasts for different timeframes"
+                      />
+                      <FeatureCard 
+                        title="Trading Signals" 
+                        description="Receive buy, sell, or hold recommendations based on technical analysis"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       </main>
