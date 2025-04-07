@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Header from '@/components/Header';
 import StockSearch from '@/components/StockSearch';
@@ -10,7 +11,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Prediction, StockData, Metrics, NewsItem, StockProfile } from '@/lib/types';
+import { Prediction, StockData, Metrics, NewsItem, StockProfile, isIndianStock } from '@/lib/types';
 import { 
   fetchStockData, 
   fetchCompanyOverview, 
@@ -33,30 +34,68 @@ const Index = () => {
     
     try {
       const symbol = query.toUpperCase();
+      console.log(`Starting search for: ${symbol}`);
       
-      const stockData = await fetchStockData(symbol);
-      setStockData(stockData);
+      // Check if it's an Indian stock for better messaging
+      const isIndian = isIndianStock(symbol);
+      if (isIndian) {
+        console.log(`Detected Indian stock: ${symbol}`);
+      }
       
-      const [companyOverview, stockNews] = await Promise.all([
-        fetchCompanyOverview(symbol),
-        fetchStockNews(symbol)
-      ]);
+      // Fetch stock data first
+      let stockData;
+      try {
+        stockData = await fetchStockData(symbol);
+        setStockData(stockData);
+        console.log(`Successfully set stock data with ${stockData.length} data points`);
+      } catch (error) {
+        console.error('Error fetching stock data:', error);
+        toast.error(`Failed to fetch stock data for ${symbol}`);
+        setIsLoading(false);
+        return;
+      }
       
-      setStockProfile(companyOverview);
-      setNews(stockNews);
+      // Use Promise.all to fetch other data in parallel
+      try {
+        const [companyOverview, stockNews] = await Promise.all([
+          fetchCompanyOverview(symbol),
+          fetchStockNews(symbol)
+        ]);
+        
+        setStockProfile(companyOverview);
+        setNews(stockNews);
+        console.log(`Set company profile and news for ${symbol}`);
+      } catch (error) {
+        console.error('Error fetching company data or news:', error);
+        // Continue with partial data
+      }
       
-      const metrics = await fetchMetrics(symbol, stockData);
-      setMetrics(metrics);
+      // Fetch metrics using the stock data we already have
+      try {
+        const metrics = await fetchMetrics(symbol, stockData);
+        setMetrics(metrics);
+        console.log(`Set metrics for ${symbol}`);
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+        // Continue with partial data
+      }
       
-      const currentPrice = stockData[stockData.length - 1]?.close || 0;
-      const predictions = generatePredictions(symbol, stockData);
-      setPredictions(predictions);
+      // Generate predictions based on the data
+      try {
+        const currentPrice = stockData[stockData.length - 1]?.close || 0;
+        const predictions = generatePredictions(symbol, stockData);
+        setPredictions(predictions);
+        console.log(`Generated predictions for ${symbol}`);
+      } catch (error) {
+        console.error('Error generating predictions:', error);
+        // Continue with partial data
+      }
       
       setIsLoading(false);
       toast.success(`Analysis complete for ${symbol}`);
       
     } catch (error) {
-      console.error('Error fetching stock data:', error);
+      console.error('Error in search process:', error);
       toast.error('Error fetching stock data. Please try again.');
       setIsLoading(false);
     }

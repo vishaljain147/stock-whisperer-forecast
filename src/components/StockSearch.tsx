@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
+import { isIndianStock } from '@/lib/types';
 
 interface StockSearchProps {
   onSearch: (symbol: string) => void;
@@ -19,10 +20,14 @@ const popularStocks = [
   { name: "Google", symbol: "GOOGL" },
   // Indian stocks - ensure all have proper exchange suffixes
   { name: "Reliance Industries", symbol: "RELIANCE.NS", indian: true },
-  { name: "Tata Consultancy", symbol: "TCS.NS", indian: true },
+  { name: "TCS", symbol: "TCS.NS", indian: true },
   { name: "HDFC Bank", symbol: "HDFCBANK.NS", indian: true },
   { name: "Infosys", symbol: "INFY.NS", indian: true },
   { name: "ICICI Bank", symbol: "ICICIBANK.NS", indian: true },
+  // Add more popular Indian stocks
+  { name: "Bharti Airtel", symbol: "BHARTIARTL.NS", indian: true },
+  { name: "SBI", symbol: "SBIN.NS", indian: true },
+  { name: "Bajaj Finance", symbol: "BAJFINANCE.NS", indian: true },
 ];
 
 const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
@@ -64,6 +69,7 @@ const StockSearch: React.FC<StockSearchProps> = ({ onSearch, isLoading }) => {
       toast.info(`Searching as Indian stock: ${searchSymbol}`);
     }
     
+    console.log(`Searching for stock: ${searchSymbol}`);
     onSearch(searchSymbol);
   };
 

@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Area, AreaChart, Legend, BarChart, Bar,
   ReferenceLine, ComposedChart, Scatter
 } from 'recharts';
-import { StockData } from '@/lib/types';
+import { StockData, isIndianExchange, getCurrencySymbol, formatCurrency } from '@/lib/types';
 import { 
   ChartContainer,
   ChartTooltip,
@@ -40,6 +40,9 @@ const StockChart: React.FC<StockChartProps> = ({
   const [timeRange, setTimeRange] = useState<"all" | "1m" | "3m" | "6m" | "1y">("all");
   const [chartType, setChartType] = useState<"area" | "candlestick" | "bar" | "line">("area");
   const [showVolume, setShowVolume] = useState<boolean>(false);
+
+  // Determine if it's an Indian stock for currency display
+  const isIndian = isIndianExchange(exchange) || stockSymbol.includes('.NS') || stockSymbol.includes('.BSE');
   
   const filterDataByRange = () => {
     if (!data?.length) return [];
@@ -86,10 +89,10 @@ const StockChart: React.FC<StockChartProps> = ({
   const priceChangePercent = previousPrice ? (priceChange / previousPrice) * 100 : 0;
   
   const formatPrice = (price: number) => {
-    const currency = isIndianExchange(exchange) ? 'INR' : 'USD';
+    const currencySymbol = isIndian ? '₹' : '$';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: isIndian ? 'INR' : 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(price);
@@ -105,11 +108,6 @@ const StockChart: React.FC<StockChartProps> = ({
   const isPositive = priceChange >= 0;
   const priceColor = isPositive ? 'text-finance-green' : 'text-finance-red';
   const chartColor = isPositive ? '#2CA58D' : '#E63946';
-
-  const isIndianExchange = (exchange: string) => {
-    const indianExchanges = ["NSE", "BSE"];
-    return indianExchanges.includes(exchange);
-  };
   
   const CandlestickTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -141,7 +139,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndianExchange(exchange) ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -198,7 +196,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndianExchange(exchange) ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -243,7 +241,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndianExchange(exchange) ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -277,7 +275,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndianExchange(exchange) ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -327,10 +325,6 @@ const StockChart: React.FC<StockChartProps> = ({
     );
   };
 
-  const getCurrencySymbol = () => {
-    return isIndianExchange(exchange) ? '₹' : '$';
-  };
-
   return (
     <Card className="w-full shadow-md">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -340,12 +334,12 @@ const StockChart: React.FC<StockChartProps> = ({
         </div>
         <div className="text-right">
           <p className="text-3xl font-bold animate-number flex items-center">
-            {isIndianExchange(exchange) && <IndianRupee className="mr-1 h-6 w-6" />}
-            {!isIndianExchange(exchange) && "$"}
+            {isIndian && <IndianRupee className="mr-1 h-6 w-6" />}
+            {!isIndian && "$"}
             {currentPrice.toFixed(2)}
           </p>
           <p className={`flex items-center ${priceColor}`}>
-            {isPositive ? '▲' : '▼'} {getCurrencySymbol()}{Math.abs(priceChange).toFixed(2)} ({priceChangePercent.toFixed(2)}%)
+            {isPositive ? '▲' : '▼'} {isIndian ? '₹' : '$'}{Math.abs(priceChange).toFixed(2)} ({priceChangePercent.toFixed(2)}%)
           </p>
         </div>
       </CardHeader>

@@ -104,7 +104,9 @@ export const INDIAN_EXCHANGES = ['NSE', 'BSE'];
 
 // Function to check if a stock is from an Indian exchange
 export const isIndianExchange = (exchange: string = ''): boolean => {
-  return INDIAN_EXCHANGES.includes(exchange.toUpperCase()) || exchange.includes('NSE') || exchange.includes('BSE');
+  return INDIAN_EXCHANGES.includes(exchange.toUpperCase()) || 
+         exchange.includes('NSE') || 
+         exchange.includes('BSE');
 };
 
 // Function to check if a symbol is likely an Indian stock
@@ -116,4 +118,20 @@ export const isIndianStock = (symbol: string): boolean => {
 export const CURRENCY_SYMBOLS = {
   USD: '$',
   INR: '₹',
+};
+
+// Function to get the currency symbol based on exchange
+export const getCurrencySymbol = (exchange: string = ''): string => {
+  return isIndianExchange(exchange) ? CURRENCY_SYMBOLS.INR : CURRENCY_SYMBOLS.USD;
+};
+
+// Function to format currency based on exchange
+export const formatCurrency = (amount: number, exchange: string = ''): string => {
+  const currency = isIndianExchange(exchange) ? 'INR' : 'USD';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
 };
