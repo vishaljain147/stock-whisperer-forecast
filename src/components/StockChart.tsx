@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/chart";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
 import { 
   ChartLine, 
   BarChart3,
@@ -25,8 +27,11 @@ import {
   Calendar,
   Clock,
   Activity,
-  ChartArea
+  ChartArea,
+  RefreshCw,
+  WifiOff
 } from "lucide-react";
+import { toast } from 'sonner';
 
 interface StockChartProps {
   data: StockData[];
@@ -43,15 +48,66 @@ const StockChart: React.FC<StockChartProps> = ({
   exchange = "NASDAQ",
   onRefreshData
 }) => {
-  const [timeRange, setTimeRange] = useState<"all" | "1d" | "1m" | "3m" | "6m" | "1y">("all");
+  const [timeRange, setTimeRange] = useState<"all" | "1d" | "1h" | "1m" | "3m" | "6m" | "1y">("1d");
   const [chartType, setChartType] = useState<"area" | "candlestick" | "bar" | "line">("area");
   const [showVolume, setShowVolume] = useState<boolean>(false);
   const [isLiveUpdate, setIsLiveUpdate] = useState<boolean>(false);
   const [isMarketOpen, setIsMarketOpen] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<"online" | "offline" | "weak">("online");
+  const liveUpdateIntervalRef = useRef<number | null>(null);
+  const connectionCheckIntervalRef = useRef<number | null>(null);
 
   // Determine if it's an Indian stock for currency display
   const isIndian = isIndianExchange(exchange) || stockSymbol.includes('.NS') || stockSymbol.includes('.BSE');
+
+  // Check internet connection status
+  useEffect(() => {
+    const checkConnection = () => {
+      if (!navigator.onLine) {
+        setConnectionStatus("offline");
+        return;
+      }
+      
+      // Check connection strength by timing a simple fetch
+      const startTime = Date.now();
+      fetch('https://www.alphavantage.co', { 
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-store'
+      })
+        .then(() => {
+          const latency = Date.now() - startTime;
+          if (latency > 1000) {
+            setConnectionStatus("weak");
+          } else {
+            setConnectionStatus("online");
+          }
+        })
+        .catch(() => {
+          setConnectionStatus("offline");
+        });
+    };
+
+    // Initial check
+    checkConnection();
+    
+    // Setup periodic check
+    connectionCheckIntervalRef.current = window.setInterval(checkConnection, 60000) as unknown as number;
+    
+    // Setup event listeners
+    window.addEventListener('online', () => setConnectionStatus("online"));
+    window.addEventListener('offline', () => setConnectionStatus("offline"));
+    
+    return () => {
+      window.removeEventListener('online', () => setConnectionStatus("online"));
+      window.removeEventListener('offline', () => setConnectionStatus("offline"));
+      if (connectionCheckIntervalRef.current !== null) {
+        clearInterval(connectionCheckIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Check if market is currently open
   useEffect(() => {
@@ -94,20 +150,41 @@ const StockChart: React.FC<StockChartProps> = ({
   
   // Refresh data at regular intervals if live updates are enabled and market is open
   useEffect(() => {
-    if (!isLiveUpdate || !isMarketOpen || !onRefreshData) return;
+    // Clear any existing interval when dependencies change
+    if (liveUpdateIntervalRef.current !== null) {
+      clearInterval(liveUpdateIntervalRef.current);
+      liveUpdateIntervalRef.current = null;
+    }
     
-    const updateInterval = 60000; // Update every minute
-    const intervalId = setInterval(async () => {
+    if (!isLiveUpdate || !isMarketOpen || !onRefreshData || connectionStatus === "offline") {
+      return;
+    }
+    
+    // Set update interval based on connection quality
+    const updateInterval = connectionStatus === "weak" ? 120000 : 60000; // 2 min for weak, 1 min for good connection
+    
+    liveUpdateIntervalRef.current = window.setInterval(async () => {
       try {
+        setIsUpdating(true);
         await onRefreshData();
         setLastUpdated(new Date());
+        toast.success(`Data updated for ${stockSymbol}`, {
+          duration: 2000,
+        });
       } catch (error) {
         console.error('Error refreshing data:', error);
+        toast.error('Failed to update data. Will retry.');
+      } finally {
+        setIsUpdating(false);
       }
-    }, updateInterval);
+    }, updateInterval) as unknown as number;
     
-    return () => clearInterval(intervalId);
-  }, [isLiveUpdate, isMarketOpen, onRefreshData]);
+    return () => {
+      if (liveUpdateIntervalRef.current !== null) {
+        clearInterval(liveUpdateIntervalRef.current);
+      }
+    };
+  }, [isLiveUpdate, isMarketOpen, onRefreshData, connectionStatus, stockSymbol]);
   
   const filterDataByRange = useCallback(() => {
     if (!data?.length) return [];
@@ -119,10 +196,15 @@ const StockChart: React.FC<StockChartProps> = ({
     let pastDate = new Date();
     
     switch (timeRange) {
+      case "1h":
+        // Set to 1 hour ago (uses most recent data points, might not be exactly hourly)
+        pastDate.setHours(now.getHours() - 1);
+        // For 1h, we'll take the last 12 data points to approximate hourly view
+        return data.slice(-12);
       case "1d":
         // Set to 24 hours ago
         pastDate.setDate(now.getDate() - 1);
-        break;
+        return data.slice(-24); // Take last 24 points for better intraday view
       case "1m":
         pastDate.setMonth(now.getMonth() - 1);
         break;
@@ -163,6 +245,13 @@ const StockChart: React.FC<StockChartProps> = ({
   };
 
   const formatDate = (date: string) => {
+    if (timeRange === "1h" || timeRange === "1d") {
+      // For shorter timeframes, show time
+      return new Date(date).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
     return new Date(date).toLocaleDateString('en-US', { 
       month: 'short',
       day: 'numeric'
@@ -178,7 +267,27 @@ const StockChart: React.FC<StockChartProps> = ({
   const handleLiveUpdateToggle = (checked: boolean) => {
     setIsLiveUpdate(checked);
     if (checked && isMarketOpen && onRefreshData) {
-      onRefreshData().then(() => setLastUpdated(new Date()));
+      // Immediate update when toggling on
+      handleManualRefresh();
+    }
+  };
+  
+  // Handle manual refresh
+  const handleManualRefresh = async () => {
+    if (!onRefreshData || isUpdating) return;
+    
+    try {
+      setIsUpdating(true);
+      await onRefreshData();
+      setLastUpdated(new Date());
+      toast.success(`Data updated for ${stockSymbol}`, {
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      toast.error('Failed to update data');
+    } finally {
+      setIsUpdating(false);
     }
   };
   
@@ -418,6 +527,32 @@ const StockChart: React.FC<StockChartProps> = ({
   const formatLastUpdated = () => {
     return lastUpdated.toLocaleTimeString();
   };
+  
+  // Get connection status details
+  const getConnectionStatusDetails = () => {
+    switch (connectionStatus) {
+      case 'online':
+        return {
+          icon: <RefreshCw size={14} className="mr-1" />,
+          label: 'Connected',
+          className: 'bg-green-500 hover:bg-green-500'
+        };
+      case 'weak':
+        return {
+          icon: <RefreshCw size={14} className="mr-1 animate-pulse" />,
+          label: 'Weak Connection',
+          className: 'bg-amber-500 hover:bg-amber-500'
+        };
+      case 'offline':
+        return {
+          icon: <WifiOff size={14} className="mr-1" />,
+          label: 'Offline',
+          className: 'bg-destructive hover:bg-destructive'
+        };
+    }
+  };
+  
+  const connectionDetails = getConnectionStatusDetails();
 
   return (
     <Card className="w-full shadow-md">
@@ -439,20 +574,21 @@ const StockChart: React.FC<StockChartProps> = ({
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => setTimeRange(value as any)}>
+          <Tabs defaultValue="1d" value={timeRange} className="w-auto" onValueChange={(value) => setTimeRange(value as any)}>
             <TabsList>
-              <TabsTrigger value="all" className="flex items-center gap-1">
-                <Calendar size={15} /> All
-              </TabsTrigger>
+              <TabsTrigger value="1h" className="flex items-center gap-1">1H</TabsTrigger>
               <TabsTrigger value="1d">1D</TabsTrigger>
               <TabsTrigger value="1m">1M</TabsTrigger>
               <TabsTrigger value="3m">3M</TabsTrigger>
               <TabsTrigger value="6m">6M</TabsTrigger>
               <TabsTrigger value="1y">1Y</TabsTrigger>
+              <TabsTrigger value="all" className="flex items-center gap-1">
+                <Calendar size={15} /> All
+              </TabsTrigger>
             </TabsList>
           </Tabs>
           
-          <Tabs defaultValue="area" className="w-auto" onValueChange={(value) => setChartType(value as any)}>
+          <Tabs defaultValue="area" value={chartType} className="w-auto" onValueChange={(value) => setChartType(value as any)}>
             <TabsList>
               <TabsTrigger value="area" className="flex items-center gap-1">
                 <ChartArea size={15} /> Area
@@ -481,28 +617,49 @@ const StockChart: React.FC<StockChartProps> = ({
                 <Switch 
                   checked={isLiveUpdate} 
                   onCheckedChange={handleLiveUpdateToggle}
-                  disabled={!isMarketOpen}
+                  disabled={!isMarketOpen || connectionStatus === "offline"}
                 />
               </div>
             )}
           </div>
         </div>
         
-        {/* Market status indicator */}
-        <div className="flex items-center gap-2 mb-4">
-          <Badge 
-            variant={isMarketOpen ? "default" : "outline"} 
-            className={isMarketOpen ? "bg-finance-green hover:bg-finance-green" : ""}
-          >
-            <Clock size={14} className="mr-1" /> 
-            {isMarketOpen ? 'Market Open' : 'Market Closed'}
-          </Badge>
-          
-          {isLiveUpdate && isMarketOpen && (
-            <Badge variant="outline" className="animate-pulse">
-              <Activity size={14} className="mr-1" /> Live • Updated at {formatLastUpdated()}
+        {/* Connection and Market Status Section */}
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant={isMarketOpen ? "default" : "outline"} 
+              className={isMarketOpen ? "bg-finance-green hover:bg-finance-green" : ""}
+            >
+              <Clock size={14} className="mr-1" /> 
+              {isMarketOpen ? 'Market Open' : 'Market Closed'}
             </Badge>
-          )}
+            
+            <Badge variant={connectionStatus === "online" ? "default" : "outline"} className={connectionDetails.className}>
+              {connectionDetails.icon} {connectionDetails.label}
+            </Badge>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {isLiveUpdate && isMarketOpen && (
+              <Badge variant="outline" className="animate-pulse">
+                <Activity size={14} className="mr-1" /> Live • Updated at {formatLastUpdated()}
+              </Badge>
+            )}
+            
+            {onRefreshData && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleManualRefresh}
+                disabled={isUpdating || connectionStatus === "offline"}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw size={14} className={isUpdating ? "animate-spin" : ""} />
+                {isUpdating ? 'Updating...' : 'Refresh'}
+              </Button>
+            )}
+          </div>
         </div>
         
         <div className="chart-container h-[300px] animate-chart-animation relative">
