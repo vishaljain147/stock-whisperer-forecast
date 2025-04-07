@@ -1,4 +1,3 @@
-
 export interface StockData {
   date: string;
   open: number;
@@ -128,10 +127,11 @@ export const getCurrencySymbol = (exchange: string = ''): string => {
 // Function to format currency based on exchange
 export const formatCurrency = (amount: number, exchange: string = ''): string => {
   const currency = isIndianExchange(exchange) ? 'INR' : 'USD';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
+  const currencySymbol = getCurrencySymbol(exchange);
+  
+  // Format the number with appropriate thousands separators
+  return currencySymbol + amount.toLocaleString('en-IN', {
+    maximumFractionDigits: 2,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
+  });
 };

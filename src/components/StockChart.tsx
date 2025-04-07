@@ -21,7 +21,8 @@ import {
   CircleAlert,
   TrendingUp,
   IndianRupee,
-  Calendar
+  Calendar,
+  ChartCandlestick
 } from "lucide-react";
 
 interface StockChartProps {
@@ -76,10 +77,11 @@ const StockChart: React.FC<StockChartProps> = ({
 
   const filteredData = filterDataByRange();
   
+  // Map the data for display, adding index property used by candlestick
   const processedData = filteredData.map((item, index) => {
     return {
       ...item,
-      index: index,
+      index,
     };
   });
   
@@ -89,13 +91,7 @@ const StockChart: React.FC<StockChartProps> = ({
   const priceChangePercent = previousPrice ? (priceChange / previousPrice) * 100 : 0;
   
   const formatPrice = (price: number) => {
-    const currencySymbol = isIndian ? '₹' : '$';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: isIndian ? 'INR' : 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(price);
+    return formatCurrency(price, exchange);
   };
 
   const formatDate = (date: string) => {
@@ -108,6 +104,7 @@ const StockChart: React.FC<StockChartProps> = ({
   const isPositive = priceChange >= 0;
   const priceColor = isPositive ? 'text-finance-green' : 'text-finance-red';
   const chartColor = isPositive ? '#2CA58D' : '#E63946';
+  const currencySymbol = getCurrencySymbol(exchange);
   
   const CandlestickTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -126,7 +123,20 @@ const StockChart: React.FC<StockChartProps> = ({
     return null;
   };
 
+  // Improved candlestick implementation
   const renderCandlestick = () => {
+    // If we have very few data points, candlestick doesn't render well
+    if (processedData.length < 5) {
+      return (
+        <div className="w-full h-full flex items-center justify-center">
+          <p>Not enough data for candlestick chart. Try another chart type.</p>
+        </div>
+      );
+    }
+
+    // Calculate reasonable width for each candlestick based on data points
+    const candleWidth = Math.min(8, Math.max(2, 300 / processedData.length));
+    
     return (
       <ResponsiveContainer width="100%" height={showVolume ? "70%" : "100%"}>
         <ComposedChart data={processedData}>
@@ -139,39 +149,42 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${currencySymbol}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
           <ChartTooltip content={<CandlestickTooltip />} />
           
+          {/* Render candles one by one */}
           {processedData.map((entry, index) => {
             const isRising = entry.close >= entry.open;
+            const wickColor = isRising ? '#2CA58D' : '#E63946';
+            const bodyColor = isRising ? '#2CA58D' : '#E63946';
+            
+            // Rendering wick (high to low)
             return [
+              // High to Low line (the wick)
               <ReferenceLine
-                key={`hl-${index}`}
+                key={`wick-${index}`}
                 segment={[
-                  { x: index, y: entry.low },
-                  { x: index, y: entry.high }
+                  { x: entry.date, y: entry.low },
+                  { x: entry.date, y: entry.high }
                 ]}
-                stroke={isRising ? '#2CA58D' : '#E63946'}
+                stroke={wickColor}
                 strokeWidth={1}
-                ifOverflow="extendDomain"
               />,
+              // Open to Close rectangle (the candle body)
               <ReferenceLine
-                key={`oc-${index}`}
+                key={`body-${index}`}
                 segment={[
-                  { x: index, y: entry.open },
-                  { x: index, y: entry.close }
+                  { x: entry.date, y: entry.open },
+                  { x: entry.date, y: entry.close }
                 ]}
-                stroke={isRising ? '#2CA58D' : '#E63946'}
-                strokeWidth={6}
-                ifOverflow="extendDomain"
+                stroke={bodyColor}
+                strokeWidth={candleWidth}
               />
             ];
           }).flat()}
-          
-          <Bar dataKey="high" fill="transparent" stroke="transparent" />
         </ComposedChart>
       </ResponsiveContainer>
     );
@@ -339,7 +352,7 @@ const StockChart: React.FC<StockChartProps> = ({
             {currentPrice.toFixed(2)}
           </p>
           <p className={`flex items-center ${priceColor}`}>
-            {isPositive ? '▲' : '▼'} {isIndian ? '₹' : '$'}{Math.abs(priceChange).toFixed(2)} ({priceChangePercent.toFixed(2)}%)
+            {isPositive ? '▲' : '▼'} {currencySymbol}{Math.abs(priceChange).toFixed(2)} ({priceChangePercent.toFixed(2)}%)
           </p>
         </div>
       </CardHeader>
@@ -363,7 +376,7 @@ const StockChart: React.FC<StockChartProps> = ({
                 <ChartLine size={15} /> Area
               </TabsTrigger>
               <TabsTrigger value="candlestick" className="flex items-center gap-1">
-                <TrendingUp size={15} /> Candlestick
+                <ChartCandlestick size={15} /> Candlestick
               </TabsTrigger>
               <TabsTrigger value="line" className="flex items-center gap-1">
                 <LineChartIcon size={15} /> Line
