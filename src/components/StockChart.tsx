@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -13,6 +14,7 @@ import {
   ChartTooltipContent
 } from "@/components/ui/chart";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { 
   ChartLine, 
   BarChart3,
@@ -21,7 +23,9 @@ import {
   TrendingUp,
   IndianRupee,
   Calendar,
-  ChartCandlestick
+  Clock,
+  Activity,
+  ChartArea
 } from "lucide-react";
 
 interface StockChartProps {
@@ -29,22 +33,83 @@ interface StockChartProps {
   stockSymbol: string;
   companyName: string;
   exchange?: string;
+  onRefreshData?: () => Promise<void>;
 }
 
 const StockChart: React.FC<StockChartProps> = ({ 
   data, 
   stockSymbol, 
   companyName,
-  exchange = "NASDAQ" 
+  exchange = "NASDAQ",
+  onRefreshData
 }) => {
   const [timeRange, setTimeRange] = useState<"all" | "1d" | "1m" | "3m" | "6m" | "1y">("all");
   const [chartType, setChartType] = useState<"area" | "candlestick" | "bar" | "line">("area");
   const [showVolume, setShowVolume] = useState<boolean>(false);
+  const [isLiveUpdate, setIsLiveUpdate] = useState<boolean>(false);
+  const [isMarketOpen, setIsMarketOpen] = useState<boolean>(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Determine if it's an Indian stock for currency display
   const isIndian = isIndianExchange(exchange) || stockSymbol.includes('.NS') || stockSymbol.includes('.BSE');
+
+  // Check if market is currently open
+  useEffect(() => {
+    const checkMarketStatus = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const day = now.getDay();
+      
+      // Weekends (0 = Sunday, 6 = Saturday)
+      if (day === 0 || day === 6) {
+        setIsMarketOpen(false);
+        return;
+      }
+      
+      // For Indian markets (NSE/BSE) - 9:15 AM to 3:30 PM IST
+      if (isIndian) {
+        // Convert to IST (UTC+5:30) roughly
+        const istHour = (hour + 5) % 24;
+        const istMinute = (minute + 30) % 60;
+        const isOpen = (istHour > 9 || (istHour === 9 && istMinute >= 15)) && 
+                      (istHour < 15 || (istHour === 15 && istMinute <= 30));
+        setIsMarketOpen(isOpen);
+        return;
+      }
+      
+      // For US markets - 9:30 AM to 4:00 PM EST
+      // This is a simplification - a real app would handle timezones better
+      const isOpen = (hour >= 9 && minute >= 30 || hour > 9) && hour < 16;
+      setIsMarketOpen(isOpen);
+    };
+    
+    checkMarketStatus();
+    
+    // Check market status every minute
+    const intervalId = setInterval(checkMarketStatus, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, [isIndian]);
   
-  const filterDataByRange = () => {
+  // Refresh data at regular intervals if live updates are enabled and market is open
+  useEffect(() => {
+    if (!isLiveUpdate || !isMarketOpen || !onRefreshData) return;
+    
+    const updateInterval = 60000; // Update every minute
+    const intervalId = setInterval(async () => {
+      try {
+        await onRefreshData();
+        setLastUpdated(new Date());
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+      }
+    }, updateInterval);
+    
+    return () => clearInterval(intervalId);
+  }, [isLiveUpdate, isMarketOpen, onRefreshData]);
+  
+  const filterDataByRange = useCallback(() => {
     if (!data?.length) return [];
     
     // If "all" is selected, return all data
@@ -76,7 +141,7 @@ const StockChart: React.FC<StockChartProps> = ({
       const itemDate = new Date(item.date);
       return itemDate >= pastDate && itemDate <= now;
     });
-  };
+  }, [data, timeRange]);
 
   const filteredData = filterDataByRange();
   
@@ -108,7 +173,16 @@ const StockChart: React.FC<StockChartProps> = ({
   const priceColor = isPositive ? 'text-finance-green' : 'text-finance-red';
   const chartColor = isPositive ? '#2CA58D' : '#E63946';
   const currencySymbol = getCurrencySymbol(exchange);
+
+  // Handle toggle of live updates
+  const handleLiveUpdateToggle = (checked: boolean) => {
+    setIsLiveUpdate(checked);
+    if (checked && isMarketOpen && onRefreshData) {
+      onRefreshData().then(() => setLastUpdated(new Date()));
+    }
+  };
   
+  // Candlestick tooltip component
   const CandlestickTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -212,7 +286,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${currencySymbol}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -257,7 +331,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${currencySymbol}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -291,7 +365,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${isIndian ? '₹' : '$'}${value}`}
+            tickFormatter={(value) => `${currencySymbol}${value}`}
             domain={['auto', 'auto']}
             tickMargin={10}
           />
@@ -341,6 +415,10 @@ const StockChart: React.FC<StockChartProps> = ({
     );
   };
 
+  const formatLastUpdated = () => {
+    return lastUpdated.toLocaleTimeString();
+  };
+
   return (
     <Card className="w-full shadow-md">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -377,10 +455,10 @@ const StockChart: React.FC<StockChartProps> = ({
           <Tabs defaultValue="area" className="w-auto" onValueChange={(value) => setChartType(value as any)}>
             <TabsList>
               <TabsTrigger value="area" className="flex items-center gap-1">
-                <ChartLine size={15} /> Area
+                <ChartArea size={15} /> Area
               </TabsTrigger>
               <TabsTrigger value="candlestick" className="flex items-center gap-1">
-                <ChartCandlestick size={15} /> Candlestick
+                <TrendingUp size={15} /> Candlestick
               </TabsTrigger>
               <TabsTrigger value="line" className="flex items-center gap-1">
                 <LineChartIcon size={15} /> Line
@@ -391,10 +469,40 @@ const StockChart: React.FC<StockChartProps> = ({
             </TabsList>
           </Tabs>
           
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Volume</span>
-            <Switch checked={showVolume} onCheckedChange={setShowVolume} />
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Volume</span>
+              <Switch checked={showVolume} onCheckedChange={setShowVolume} />
+            </div>
+            
+            {onRefreshData && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Live Updates</span>
+                <Switch 
+                  checked={isLiveUpdate} 
+                  onCheckedChange={handleLiveUpdateToggle}
+                  disabled={!isMarketOpen}
+                />
+              </div>
+            )}
           </div>
+        </div>
+        
+        {/* Market status indicator */}
+        <div className="flex items-center gap-2 mb-4">
+          <Badge 
+            variant={isMarketOpen ? "default" : "outline"} 
+            className={isMarketOpen ? "bg-finance-green hover:bg-finance-green" : ""}
+          >
+            <Clock size={14} className="mr-1" /> 
+            {isMarketOpen ? 'Market Open' : 'Market Closed'}
+          </Badge>
+          
+          {isLiveUpdate && isMarketOpen && (
+            <Badge variant="outline" className="animate-pulse">
+              <Activity size={14} className="mr-1" /> Live • Updated at {formatLastUpdated()}
+            </Badge>
+          )}
         </div>
         
         <div className="chart-container h-[300px] animate-chart-animation relative">

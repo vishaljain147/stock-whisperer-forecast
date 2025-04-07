@@ -28,12 +28,14 @@ const Index = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [stockProfile, setStockProfile] = useState<StockProfile | null>(null);
   const [activeTimeframe, setActiveTimeframe] = useState<string>('Tomorrow');
+  const [currentSymbol, setCurrentSymbol] = useState<string>('');
 
   const handleSearch = async (query: string) => {
     setIsLoading(true);
     
     try {
       const symbol = query.toUpperCase();
+      setCurrentSymbol(symbol);
       console.log(`Starting search for: ${symbol}`);
       
       // Check if it's an Indian stock for better messaging
@@ -101,6 +103,36 @@ const Index = () => {
     }
   };
 
+  const refreshCurrentStock = async () => {
+    if (!currentSymbol) return;
+    
+    try {
+      // No need to show loading state for refresh
+      console.log(`Refreshing data for: ${currentSymbol}`);
+      
+      // Fetch new stock data
+      const freshStockData = await fetchStockData(currentSymbol);
+      setStockData(freshStockData);
+      
+      // Update predictions
+      const updatedPredictions = generatePredictions(currentSymbol, freshStockData);
+      setPredictions(updatedPredictions);
+      
+      // Update metrics
+      const updatedMetrics = await fetchMetrics(currentSymbol, freshStockData);
+      setMetrics(updatedMetrics);
+      
+      toast.success(`Data updated for ${currentSymbol}`, {
+        duration: 2000,
+      });
+      
+      return;
+    } catch (error) {
+      console.error('Error refreshing stock data:', error);
+      toast.error('Could not refresh stock data');
+    }
+  };
+
   const currentPrice = stockData.length > 0 ? stockData[stockData.length - 1].close : 0;
 
   return (
@@ -130,6 +162,7 @@ const Index = () => {
                       stockSymbol={stockProfile.symbol}
                       companyName={stockProfile.name}
                       exchange={stockProfile.exchange || "NASDAQ"}
+                      onRefreshData={refreshCurrentStock}
                     />
                   </div>
                   
