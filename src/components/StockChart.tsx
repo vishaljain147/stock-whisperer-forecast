@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,7 +37,7 @@ const StockChart: React.FC<StockChartProps> = ({
   companyName,
   exchange = "NASDAQ" 
 }) => {
-  const [timeRange, setTimeRange] = useState<"all" | "1m" | "3m" | "6m" | "1y">("all");
+  const [timeRange, setTimeRange] = useState<"all" | "1d" | "1m" | "3m" | "6m" | "1y">("all");
   const [chartType, setChartType] = useState<"area" | "candlestick" | "bar" | "line">("area");
   const [showVolume, setShowVolume] = useState<boolean>(false);
 
@@ -55,6 +54,10 @@ const StockChart: React.FC<StockChartProps> = ({
     let pastDate = new Date();
     
     switch (timeRange) {
+      case "1d":
+        // Set to 24 hours ago
+        pastDate.setDate(now.getDate() - 1);
+        break;
       case "1m":
         pastDate.setMonth(now.getMonth() - 1);
         break;
@@ -363,6 +366,7 @@ const StockChart: React.FC<StockChartProps> = ({
               <TabsTrigger value="all" className="flex items-center gap-1">
                 <Calendar size={15} /> All
               </TabsTrigger>
+              <TabsTrigger value="1d">1D</TabsTrigger>
               <TabsTrigger value="1m">1M</TabsTrigger>
               <TabsTrigger value="3m">3M</TabsTrigger>
               <TabsTrigger value="6m">6M</TabsTrigger>
